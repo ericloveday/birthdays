@@ -1,1 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Birthday Manager</title>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Montserrat', sans-serif;
+    background: #f4f4f4;
+    padding: 24px;
+    color: #222;
+  }
+  .wrap { max-width: 900px; margin: 0 auto; }
+  h1 {
+    color: #ce1f07;
+    font-weight: 800;
+    margin-bottom: 6px;
+    font-size: 24pt;
+  }
+  .subtitle { color: #666; margin-bottom: 24px; font-size: 10pt; }
+  .card {
+    background: #fff;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    border-left: 5px solid #ce1f07;
+  }
+  .card h2 {
+    font-size: 13pt;
+    margin-bottom: 12px;
+    color: #ce1f07;
+    font-weight: 700;
+  }
+  textarea, input[type=text] {
+    width: 100%;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 11pt;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    margin-bottom: 10px;
+  }
+  textarea { min-height: 120px; resize: vertical; }
+  .row { display: flex; gap: 10px; }
+  .row > * { flex: 1; }
+  button {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 700;
+    background: #ce1f07;
+    color: #fff;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 10.5pt;
+  }
+  button:hover { background: #a81905; }
+  button.secondary {
+    background: #666;
+  }
+  button.secondary:hover { background: #444; }
+  button.danger {
+    background: #b00020;
+    padding: 6px 10px;
+    font-size: 9pt;
+  }
+  button.small {
+    padding: 6px 10px;
+    font-size: 9pt;
+  }
+  .import-mode {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 10px;
+    font-size: 10pt;
+  }
+  .import-mode label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
+  .banner {
+    padding: 12px 16px;
+    border-radius: 6px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    font-size: 10pt;
+    display: none;
+  }
+  .banner.success { background: #d7f3d7; color: #1e6b1e; display: block; }
+  .banner.error { background: #f9d6d6; color: #8a1010; display: block; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10pt;
+  }
+  th, td {
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid #eee;
+  }
+  th { color: #ce1f07; font-weight: 700; text-transform: uppercase; font-size: 9pt; }
+  tr:hover { background: #fafafa; }
+  input.edit-input {
+    width: 100%;
+    padding: 5px;
+    font-family: 'Montserrat', sans-serif;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    margin: 0;
+  }
+  .count-badge {
+    background: #ce1f07;
+    color: #fff;
+    border-radius: 12px;
+    padding: 2px 10px;
+    font-size: 9pt;
+    font-weight: 700;
+  }
+  .actions-cell { display: flex; gap: 6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🎂 Birthday Manager</h1>
+  <div class="subtitle">Manages student birthdays for the Google Sites birthday widget — synced live via Firebase.</div>
 
+  <div id="banner" class="banner"></div>
+
+  <div class="card">
+    <h2>Bulk Add (Paste a List)</h2>
+    <div class="import-mode">
+      <label><input type="radio" name="mode" value="append" checked> Add to existing roster</label>
+      <label><input type="radio" name="mode" value="replace"> Replace entire roster</label>
+    </div>
+    <textarea id="bulkInput" placeholder="One student per line, formatted like:
+Elliott A - 1/8
+Declan - 01/11
+Jeremiah, 1-14"></textarea>
+    <button id="bulkAddBtn">Import List</button>
+  </div>
+
+  <div class="card">
+    <h2>Add One Student</h2>
+    <div class="row">
+      <input type="text" id="nameInput" placeholder="Student name" />
+      <input type="text" id="dateInput" placeholder="Birthday (MM/DD)" />
+    </div>
+    <button id="addOneBtn">Add Student</button>
+  </div>
+
+  <div class="card">
+    <h2>Roster <span class="count-badge" id="countBadge">0</span></h2>
+    <input type="text" id="searchInput" placeholder="Search by name..." />
+    <table>
+      <thead>
+        <tr><th>Name</th><th>Birthday</th><th></th></tr>
+      </thead>
+      <tbody id="rosterBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  // === REPLACE WITH YOUR ACTUAL FIREBASE CONFIG (same project as your other tools) ===
+  const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "bathroom-check-out.firebaseapp.com",
+    databaseURL: "https://bathroom-check-out-default-rtdb.firebaseio.com",
+    projectId: "bathroom-check-out",
+    storageBucket: "bathroom-check-out.appspot.com",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId: "YOUR_APP_ID"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+  const birthdaysRef = db.ref('birthdays');
+
+  let roster = {}; // key -> {name, birthday}
+
+  function showBanner(msg, type) {
+    const b = document.getElementById('banner');
+    b.textContent = msg;
+    b.className = 'banner ' + type;
+    setTimeout(() => { b.style.display = 'none'; }, 4000);
+  }
+
+  function parseDateToken(token) {
+    // Accepts M/D, MM/DD, M-D, MM-DD
+    const cleaned = token.trim().replace(/\./g, '');
+    const parts = cleaned.split(/[\/\-]/);
+    if (parts.length !== 2) return null;
+    const m = parseInt(parts[0], 10);
+    const d = parseInt(parts[1], 10);
+    if (isNaN(m) || isNaN(d) || m < 1 || m > 12 || d < 1 || d > 31) return null;
+    return String(m).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+  }
+
+  function parseLine(line) {
+    // Try " - " delimiter first, then ","
+    let name, dateToken;
+    if (line.includes(' - ')) {
+      const idx = line.lastIndexOf(' - ');
+      name = line.slice(0, idx).trim();
+      dateToken = line.slice(idx + 3).trim();
+    } else if (line.includes(',')) {
+      const idx = line.lastIndexOf(',');
+      name = line.slice(0, idx).trim();
+      dateToken = line.slice(idx + 1).trim();
+    } else {
+      // fallback: last whitespace-separated token is the date
+      const idx = line.lastIndexOf(' ');
+      if (idx === -1) return null;
+      name = line.slice(0, idx).trim();
+      dateToken = line.slice(idx + 1).trim();
+    }
+    const birthday = parseDateToken(dateToken);
+    if (!name || !birthday) return null;
+    return { name, birthday };
+  }
+
+  document.getElementById('bulkAddBtn').addEventListener('click', () => {
+    const raw = document.getElementById('bulkInput').value;
+    const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+    if (lines.length === 0) {
+      showBanner('Paste at least one line first.', 'error');
+      return;
+    }
+    const mode = document.querySelector('input[name="mode"]:checked').value;
+    const parsed = [];
+    const failed = [];
+    lines.forEach(line => {
+      const result = parseLine(line);
+      if (result) parsed.push(result);
+      else failed.push(line);
+    });
+
+    const finish = () => {
+      const entries = {};
+      parsed.forEach(p => {
+        const key = birthdaysRef.push().key;
+        entries[key] = p;
+      });
+      birthdaysRef.update(entries).then(() => {
+        document.getElementById('bulkInput').value = '';
+        let msg = `Imported ${parsed.length} student${parsed.length !== 1 ? 's' : ''}.`;
+        if (failed.length) msg += ` Could not parse ${failed.length} line(s) — check format.`;
+        showBanner(msg, failed.length ? 'error' : 'success');
+      });
+    };
+
+    if (mode === 'replace') {
+      birthdaysRef.remove().then(finish);
+    } else {
+      finish();
+    }
+  });
+
+  document.getElementById('addOneBtn').addEventListener('click', () => {
+    const name = document.getElementById('nameInput').value.trim();
+    const dateToken = document.getElementById('dateInput').value.trim();
+    const birthday = parseDateToken(dateToken);
+    if (!name || !birthday) {
+      showBanner('Enter a name and a valid MM/DD date.', 'error');
+      return;
+    }
+    birthdaysRef.push({ name, birthday }).then(() => {
+      document.getElementById('nameInput').value = '';
+      document.getElementById('dateInput').value = '';
+      showBanner(`Added ${name}.`, 'success');
+    });
+  });
+
+  function formatDisplayDate(mmdd) {
+    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const [m, d] = mmdd.split('-');
+    return months[parseInt(m,10)-1] + ' ' + parseInt(d,10);
+  }
+
+  function renderRoster() {
+    const searchTerm = document.getElementById('searchInput').value.trim().toLowerCase();
+    const tbody = document.getElementById('rosterBody');
+    tbody.innerHTML = '';
+
+    const entries = Object.entries(roster)
+      .filter(([key, s]) => s.name.toLowerCase().includes(searchTerm))
+      .sort((a, b) => a[1].birthday.localeCompare(b[1].birthday));
+
+    document.getElementById('countBadge').textContent = Object.keys(roster).length;
+
+    entries.forEach(([key, s]) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="name-cell">${s.name}</td>
+        <td class="date-cell">${formatDisplayDate(s.birthday)}</td>
+        <td class="actions-cell">
+          <button class="small secondary" onclick="editRow('${key}')">Edit</button>
+          <button class="small danger" onclick="deleteRow('${key}')">Delete</button>
+        </td>`;
+      tbody.appendChild(tr);
+    });
+  }
+
+  window.deleteRow = function(key) {
+    if (!confirm(`Delete ${roster[key]?.name}?`)) return;
+    birthdaysRef.child(key).remove().then(() => showBanner('Deleted.', 'success'));
+  };
+
+  window.editRow = function(key) {
+    const s = roster[key];
+    const tr = [...document.querySelectorAll('#rosterBody tr')].find(row =>
+      row.querySelector('button.danger').getAttribute('onclick').includes(key)
+    );
+    tr.innerHTML = `
+      <td><input class="edit-input" id="editName-${key}" value="${s.name}"></td>
+      <td><input class="edit-input" id="editDate-${key}" value="${s.birthday.replace('-','/')}"></td>
+      <td class="actions-cell">
+        <button class="small" onclick="saveRow('${key}')">Save</button>
+        <button class="small secondary" onclick="renderRoster()">Cancel</button>
+      </td>`;
+  };
+
+  window.saveRow = function(key) {
+    const name = document.getElementById(`editName-${key}`).value.trim();
+    const birthday = parseDateToken(document.getElementById(`editDate-${key}`).value.trim());
+    if (!name || !birthday) {
+      showBanner('Enter a valid name and MM/DD date.', 'error');
+      return;
+    }
+    birthdaysRef.child(key).update({ name, birthday }).then(() => showBanner('Updated.', 'success'));
+  };
+
+  document.getElementById('searchInput').addEventListener('input', renderRoster);
+
+  birthdaysRef.on('value', snapshot => {
+    roster = snapshot.val() || {};
+    renderRoster();
+  });
+</script>
+</body>
+</html>
