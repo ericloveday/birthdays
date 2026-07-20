@@ -9,116 +9,52 @@
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: 'Montserrat', sans-serif;
-    background: #f4f4f4;
-    padding: 24px;
-    color: #222;
-  }
+  body { font-family: 'Montserrat', sans-serif; background: #f4f4f4; padding: 24px; color: #222; }
   .wrap { max-width: 900px; margin: 0 auto; }
-  h1 {
-    color: #ce1f07;
-    font-weight: 800;
-    margin-bottom: 6px;
-    font-size: 24pt;
-  }
+  h1 { color: #ce1f07; font-weight: 800; margin-bottom: 6px; font-size: 24pt; }
   .subtitle { color: #666; margin-bottom: 24px; font-size: 10pt; }
   .card {
-    background: #fff;
-    border-radius: 10px;
-    padding: 20px;
-    margin-bottom: 20px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    border-left: 5px solid #ce1f07;
+    background: #fff; border-radius: 10px; padding: 20px; margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-left: 5px solid #ce1f07;
   }
-  .card h2 {
-    font-size: 13pt;
-    margin-bottom: 12px;
-    color: #ce1f07;
-    font-weight: 700;
-  }
+  .card h2 { font-size: 13pt; margin-bottom: 12px; color: #ce1f07; font-weight: 700; }
   textarea, input[type=text] {
-    width: 100%;
-    font-family: 'Montserrat', sans-serif;
-    font-size: 11pt;
-    padding: 10px;
-    border: 1px solid #ccc;
-    border-radius: 6px;
-    margin-bottom: 10px;
+    width: 100%; font-family: 'Montserrat', sans-serif; font-size: 11pt;
+    padding: 10px; border: 1px solid #ccc; border-radius: 6px; margin-bottom: 10px;
   }
   textarea { min-height: 120px; resize: vertical; }
   .row { display: flex; gap: 10px; }
   .row > * { flex: 1; }
   button {
-    font-family: 'Montserrat', sans-serif;
-    font-weight: 700;
-    background: #ce1f07;
-    color: #fff;
-    border: none;
-    padding: 10px 18px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 10.5pt;
+    font-family: 'Montserrat', sans-serif; font-weight: 700; background: #ce1f07;
+    color: #fff; border: none; padding: 10px 18px; border-radius: 6px; cursor: pointer; font-size: 10.5pt;
   }
   button:hover { background: #a81905; }
-  button.secondary {
-    background: #666;
-  }
+  button.secondary { background: #666; }
   button.secondary:hover { background: #444; }
-  button.danger {
-    background: #b00020;
-    padding: 6px 10px;
-    font-size: 9pt;
-  }
-  button.small {
-    padding: 6px 10px;
-    font-size: 9pt;
-  }
-  .import-mode {
-    display: flex;
-    gap: 16px;
-    margin-bottom: 10px;
-    font-size: 10pt;
-  }
+  button.danger { background: #b00020; padding: 6px 10px; font-size: 9pt; }
+  button.small { padding: 6px 10px; font-size: 9pt; }
+  .import-mode { display: flex; gap: 16px; margin-bottom: 10px; font-size: 10pt; }
   .import-mode label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
+  .divider { display: flex; align-items: center; gap: 12px; margin: 18px 0; color: #999; font-size: 9pt; font-weight: 700; text-transform: uppercase; }
+  .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: #eee; }
+  .file-drop {
+    border: 2px dashed #ccc; border-radius: 8px; padding: 20px; text-align: center;
+    color: #888; font-size: 10pt; margin-bottom: 10px; cursor: pointer;
+  }
+  .file-drop:hover { border-color: #ce1f07; color: #ce1f07; }
+  .file-drop input[type=file] { display: none; }
   .banner {
-    padding: 12px 16px;
-    border-radius: 6px;
-    margin-bottom: 16px;
-    font-weight: 600;
-    font-size: 10pt;
-    display: none;
+    padding: 12px 16px; border-radius: 6px; margin-bottom: 16px; font-weight: 600; font-size: 10pt; display: none;
   }
   .banner.success { background: #d7f3d7; color: #1e6b1e; display: block; }
   .banner.error { background: #f9d6d6; color: #8a1010; display: block; }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 10pt;
-  }
-  th, td {
-    text-align: left;
-    padding: 8px 10px;
-    border-bottom: 1px solid #eee;
-  }
+  table { width: 100%; border-collapse: collapse; font-size: 10pt; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #eee; }
   th { color: #ce1f07; font-weight: 700; text-transform: uppercase; font-size: 9pt; }
   tr:hover { background: #fafafa; }
-  input.edit-input {
-    width: 100%;
-    padding: 5px;
-    font-family: 'Montserrat', sans-serif;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    margin: 0;
-  }
-  .count-badge {
-    background: #ce1f07;
-    color: #fff;
-    border-radius: 12px;
-    padding: 2px 10px;
-    font-size: 9pt;
-    font-weight: 700;
-  }
+  input.edit-input { width: 100%; padding: 5px; font-family: 'Montserrat', sans-serif; border: 1px solid #ccc; border-radius: 4px; margin: 0; }
+  .count-badge { background: #ce1f07; color: #fff; border-radius: 12px; padding: 2px 10px; font-size: 9pt; font-weight: 700; }
   .actions-cell { display: flex; gap: 6px; }
 </style>
 </head>
@@ -130,16 +66,25 @@
   <div id="banner" class="banner"></div>
 
   <div class="card">
-    <h2>Bulk Add (Paste a List)</h2>
+    <h2>Bulk Add</h2>
     <div class="import-mode">
       <label><input type="radio" name="mode" value="append" checked> Add to existing roster</label>
       <label><input type="radio" name="mode" value="replace"> Replace entire roster</label>
     </div>
+
     <textarea id="bulkInput" placeholder="One student per line, formatted like:
 Elliott A - 1/8
 Declan - 01/11
 Jeremiah, 1-14"></textarea>
-    <button id="bulkAddBtn">Import List</button>
+    <button id="bulkAddBtn">Import Pasted List</button>
+
+    <div class="divider">or</div>
+
+    <div class="file-drop" id="dropZone">
+      📄 Click to choose a CSV file (Name column, Date column — e.g. 8/29/2012)
+      <input type="file" id="csvFile" accept=".csv" />
+    </div>
+    <button id="csvAddBtn">Import CSV</button>
   </div>
 
   <div class="card">
@@ -155,43 +100,41 @@ Jeremiah, 1-14"></textarea>
     <h2>Roster <span class="count-badge" id="countBadge">0</span></h2>
     <input type="text" id="searchInput" placeholder="Search by name..." />
     <table>
-      <thead>
-        <tr><th>Name</th><th>Birthday</th><th></th></tr>
-      </thead>
+      <thead><tr><th>Name</th><th>Birthday</th><th></th></tr></thead>
       <tbody id="rosterBody"></tbody>
     </table>
   </div>
 </div>
 
 <script>
-  // === REPLACE WITH YOUR ACTUAL FIREBASE CONFIG (same project as your other tools) ===
-   const firebaseConfig = {
-    apiKey: "AIzaSyBsja7ruNaLkTDTxyga9qd9TZG2Zz5AjHA",
+  // === REPLACE WITH YOUR ACTUAL FIREBASE CONFIG ===
+  const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
     authDomain: "bathroom-check-out.firebaseapp.com",
     databaseURL: "https://bathroom-check-out-default-rtdb.firebaseio.com",
     projectId: "bathroom-check-out",
-    storageBucket: "bathroom-check-out.firebasestorage.app",
-    messagingSenderId: "385219454253",
-    appId: "1:385219454253:web:970acbfe28672f73c45fa4"
+    storageBucket: "bathroom-check-out.appspot.com",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId: "YOUR_APP_ID"
   };
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
   const birthdaysRef = db.ref('birthdays');
 
-  let roster = {}; // key -> {name, birthday}
+  let roster = {};
 
   function showBanner(msg, type) {
     const b = document.getElementById('banner');
     b.textContent = msg;
     b.className = 'banner ' + type;
-    setTimeout(() => { b.style.display = 'none'; }, 4000);
+    setTimeout(() => { b.style.display = 'none'; }, 5000);
   }
 
+  // Accepts M/D, MM/DD, M-D, MM-DD, AND M/D/YYYY, MM/DD/YYYY (year is ignored)
   function parseDateToken(token) {
-    // Accepts M/D, MM/DD, M-D, MM-DD
-    const cleaned = token.trim().replace(/\./g, '');
-    const parts = cleaned.split(/[\/\-]/);
-    if (parts.length !== 2) return null;
+    const cleaned = token.trim().replace(/"/g, '');
+    const parts = cleaned.split(/[\/\-]/).map(p => p.trim()).filter(Boolean);
+    if (parts.length < 2) return null;
     const m = parseInt(parts[0], 10);
     const d = parseInt(parts[1], 10);
     if (isNaN(m) || isNaN(d) || m < 1 || m > 12 || d < 1 || d > 31) return null;
@@ -199,7 +142,6 @@ Jeremiah, 1-14"></textarea>
   }
 
   function parseLine(line) {
-    // Try " - " delimiter first, then ","
     let name, dateToken;
     if (line.includes(' - ')) {
       const idx = line.lastIndexOf(' - ');
@@ -210,7 +152,6 @@ Jeremiah, 1-14"></textarea>
       name = line.slice(0, idx).trim();
       dateToken = line.slice(idx + 1).trim();
     } else {
-      // fallback: last whitespace-separated token is the date
       const idx = line.lastIndexOf(' ');
       if (idx === -1) return null;
       name = line.slice(0, idx).trim();
@@ -221,6 +162,40 @@ Jeremiah, 1-14"></textarea>
     return { name, birthday };
   }
 
+  // Simple CSV row splitter — handles quoted fields with commas inside
+  function parseCSVRow(row) {
+    const fields = [];
+    let cur = '', inQuotes = false;
+    for (let i = 0; i < row.length; i++) {
+      const c = row[i];
+      if (c === '"') { inQuotes = !inQuotes; }
+      else if (c === ',' && !inQuotes) { fields.push(cur); cur = ''; }
+      else { cur += c; }
+    }
+    fields.push(cur);
+    return fields.map(f => f.trim().replace(/^"|"$/g, ''));
+  }
+
+  function commitImport(parsed, failed, mode, sourceLabel) {
+    const finish = () => {
+      const entries = {};
+      parsed.forEach(p => {
+        const key = birthdaysRef.push().key;
+        entries[key] = p;
+      });
+      birthdaysRef.update(entries).then(() => {
+        let msg = `Imported ${parsed.length} student${parsed.length !== 1 ? 's' : ''} from ${sourceLabel}.`;
+        if (failed.length) msg += ` Skipped ${failed.length} row(s) that didn't parse.`;
+        showBanner(msg, failed.length ? 'error' : 'success');
+      });
+    };
+    if (mode === 'replace') {
+      birthdaysRef.remove().then(finish);
+    } else {
+      finish();
+    }
+  }
+
   document.getElementById('bulkAddBtn').addEventListener('click', () => {
     const raw = document.getElementById('bulkInput').value;
     const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
@@ -229,33 +204,52 @@ Jeremiah, 1-14"></textarea>
       return;
     }
     const mode = document.querySelector('input[name="mode"]:checked').value;
-    const parsed = [];
-    const failed = [];
+    const parsed = [], failed = [];
     lines.forEach(line => {
       const result = parseLine(line);
-      if (result) parsed.push(result);
-      else failed.push(line);
+      if (result) parsed.push(result); else failed.push(line);
     });
+    document.getElementById('bulkInput').value = '';
+    commitImport(parsed, failed, mode, 'pasted list');
+  });
 
-    const finish = () => {
-      const entries = {};
-      parsed.forEach(p => {
-        const key = birthdaysRef.push().key;
-        entries[key] = p;
-      });
-      birthdaysRef.update(entries).then(() => {
-        document.getElementById('bulkInput').value = '';
-        let msg = `Imported ${parsed.length} student${parsed.length !== 1 ? 's' : ''}.`;
-        if (failed.length) msg += ` Could not parse ${failed.length} line(s) — check format.`;
-        showBanner(msg, failed.length ? 'error' : 'success');
-      });
-    };
+  document.getElementById('dropZone').addEventListener('click', () => {
+    document.getElementById('csvFile').click();
+  });
 
-    if (mode === 'replace') {
-      birthdaysRef.remove().then(finish);
-    } else {
-      finish();
+  document.getElementById('csvAddBtn').addEventListener('click', () => {
+    const fileInput = document.getElementById('csvFile');
+    const file = fileInput.files[0];
+    if (!file) {
+      showBanner('Choose a CSV file first.', 'error');
+      return;
     }
+    const mode = document.querySelector('input[name="mode"]:checked').value;
+    const reader = new FileReader();
+    reader.onload = e => {
+      const text = e.target.result;
+      const rows = text.split(/\r?\n/).map(r => r.trim()).filter(Boolean);
+      const parsed = [], failed = [];
+
+      rows.forEach((row, i) => {
+        const fields = parseCSVRow(row);
+        if (fields.length < 2) { failed.push(row); return; }
+        const name = fields[0].trim();
+        const birthday = parseDateToken(fields[1]);
+        if (!birthday) {
+          // Likely a header row (e.g. "Name, Date of Birth") — skip silently if it's row 0
+          if (i === 0) return;
+          failed.push(row);
+          return;
+        }
+        if (!name) { failed.push(row); return; }
+        parsed.push({ name, birthday });
+      });
+
+      fileInput.value = '';
+      commitImport(parsed, failed, mode, 'CSV file');
+    };
+    reader.readAsText(file);
   });
 
   document.getElementById('addOneBtn').addEventListener('click', () => {
@@ -283,13 +277,10 @@ Jeremiah, 1-14"></textarea>
     const searchTerm = document.getElementById('searchInput').value.trim().toLowerCase();
     const tbody = document.getElementById('rosterBody');
     tbody.innerHTML = '';
-
     const entries = Object.entries(roster)
       .filter(([key, s]) => s.name.toLowerCase().includes(searchTerm))
       .sort((a, b) => a[1].birthday.localeCompare(b[1].birthday));
-
     document.getElementById('countBadge').textContent = Object.keys(roster).length;
-
     entries.forEach(([key, s]) => {
       const tr = document.createElement('tr');
       tr.innerHTML = `
