@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Birthday Manager</title>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 <style>
@@ -107,19 +108,27 @@ Jeremiah, 1-14"></textarea>
 </div>
 
 <script>
-  // === REPLACE WITH YOUR ACTUAL FIREBASE CONFIG ===
   const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
+    apiKey: "AIzaSyBsja7ruNaLkTDTxyga9qd9TZG2Zz5AjHA",
     authDomain: "bathroom-check-out.firebaseapp.com",
     databaseURL: "https://bathroom-check-out-default-rtdb.firebaseio.com",
     projectId: "bathroom-check-out",
-    storageBucket: "bathroom-check-out.appspot.com",
-    messagingSenderId: "YOUR_SENDER_ID",
-    appId: "YOUR_APP_ID"
+    storageBucket: "bathroom-check-out.firebasestorage.app",
+    messagingSenderId: "385219454253",
+    appId: "1:385219454253:web:970acbfe28672f73c45fa4"
   };
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
   const birthdaysRef = db.ref('birthdays');
+
+  // Sign in anonymously so the database rules (auth != null) let this page
+  // read/write. This is invisible — no login screen appears.
+  const authReady = new Promise((resolve, reject) => {
+    firebase.auth().onAuthStateChanged(user => {
+      if (user) resolve(user);
+    });
+    firebase.auth().signInAnonymously().catch(reject);
+  });
 
   let roster = {};
 
@@ -325,9 +334,14 @@ Jeremiah, 1-14"></textarea>
 
   document.getElementById('searchInput').addEventListener('input', renderRoster);
 
-  birthdaysRef.on('value', snapshot => {
-    roster = snapshot.val() || {};
-    renderRoster();
+  authReady.then(() => {
+    birthdaysRef.on('value', snapshot => {
+      roster = snapshot.val() || {};
+      renderRoster();
+    });
+  }).catch(err => {
+    console.error("Anonymous sign-in failed:", err);
+    showBanner("Couldn't connect to the database. Check your connection and reload the page.", 'error');
   });
 </script>
 </body>
