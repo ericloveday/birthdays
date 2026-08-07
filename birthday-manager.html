@@ -388,9 +388,11 @@ Jeremiah, 1-14"></textarea>
         const looksLikeHeader = lastIdx >= 0 || firstIdx >= 0 || dobIdx >= 0 ||
           headerFields.some(h => h === 'name' || h === 'date');
 
-        const parsed = [], failed = [];
         const threeColumnFormat = lastIdx >= 0 && firstIdx >= 0;
         const startIdx = looksLikeHeader ? 1 : 0;
+
+        const rawEntries = []; // { first, last, birthday }
+        const failed = [];
 
         for (let i = startIdx; i < rows.length; i++) {
           const row = rows[i];
@@ -405,18 +407,42 @@ Jeremiah, 1-14"></textarea>
               ? dobIdx
               : fields.findIndex((_, idx) => idx !== lastIdx && idx !== firstIdx);
             const birthday = parseDateToken(fields[dateColIdx] || '');
-            const name = [first, last].filter(Boolean).join(' ').trim();
 
-            if (!name || !birthday) { failed.push(row); continue; }
-            parsed.push({ name, birthday });
+            if (!first || !last || !birthday) { failed.push(row); continue; }
+            rawEntries.push({ first, last, birthday });
           } else {
             if (fields.length < 2) { failed.push(row); continue; }
-            const name = fields[0].trim();
+            const fullName = fields[0].trim();
             const birthday = parseDateToken(fields[1]);
-            if (!name || !birthday) { failed.push(row); continue; }
-            parsed.push({ name, birthday });
+            if (!fullName || !birthday) { failed.push(row); continue; }
+
+            // Split "First Last" into parts — last word is the last name,
+            // everything before it is the first name (handles middle names too).
+            const nameParts = fullName.split(/\s+/);
+            const last = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
+            const first = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : fullName;
+
+            if (!first) { failed.push(row); continue; }
+            rawEntries.push({ first, last, birthday });
           }
         }
+
+        // Build final display names: "First L" by default, but "First La" for
+        // any pair that shares the same first name AND the same last initial,
+        // so e.g. two "Liam M___"s in the same import don't collapse into one.
+        const groupCounts = {};
+        rawEntries.forEach(en => {
+          const key = en.first.trim().toLowerCase() + '|' + en.last.trim().charAt(0).toLowerCase();
+          groupCounts[key] = (groupCounts[key] || 0) + 1;
+        });
+
+        const parsed = rawEntries.map(en => {
+          const key = en.first.trim().toLowerCase() + '|' + en.last.trim().charAt(0).toLowerCase();
+          const suffixLen = groupCounts[key] > 1 ? 2 : 1;
+          const suffix = en.last.trim().slice(0, suffixLen);
+          const name = suffix ? `${en.first.trim()} ${suffix}` : en.first.trim();
+          return { name, birthday: en.birthday };
+        });
 
         fileInput.value = '';
         document.getElementById('dropZoneLabel').textContent = '📄 Click to choose a CSV file (Name column, Date column — e.g. 8/29/2012)';
