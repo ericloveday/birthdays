@@ -137,7 +137,7 @@ Jeremiah, 1-14"></textarea>
     <div class="divider">or</div>
 
     <div class="file-drop" id="dropZone">
-      📄 Click to choose a CSV file (Name column, Date column — e.g. 8/29/2012)
+      <span id="dropZoneLabel">📄 Click to choose a CSV file (Name column, Date column — e.g. 8/29/2012)</span>
       <input type="file" id="csvFile" accept=".csv" />
     </div>
     <button id="csvAddBtn">Import CSV</button>
@@ -285,6 +285,21 @@ Jeremiah, 1-14"></textarea>
     return fields.map(f => f.trim().replace(/^"|"$/g, ''));
   }
 
+  // Detects whether a row is tab- or comma-delimited (common when a CSV was
+  // actually exported/copied from a spreadsheet as tab-separated text).
+  function detectDelimiter(line) {
+    const tabCount = (line.match(/\t/g) || []).length;
+    const commaCount = (line.match(/,/g) || []).length;
+    return tabCount > commaCount ? 'tab' : 'comma';
+  }
+
+  function splitRow(row, delimiter) {
+    if (delimiter === 'tab') {
+      return row.split('\t').map(f => f.trim().replace(/^"|"$/g, ''));
+    }
+    return parseCSVRow(row);
+  }
+
   function commitImport(parsed, failed, mode, sourceLabel) {
     const finish = () => {
       const entries = {};
@@ -296,10 +311,16 @@ Jeremiah, 1-14"></textarea>
         let msg = `Imported ${parsed.length} student${parsed.length !== 1 ? 's' : ''} from ${sourceLabel}.`;
         if (failed.length) msg += ` Skipped ${failed.length} row(s) that didn't parse.`;
         showBanner(msg, failed.length ? 'error' : 'success');
+      }).catch(err => {
+        console.error('Firebase write failed:', err);
+        showBanner('Import failed — could not save to the database: ' + err.message, 'error');
       });
     };
     if (mode === 'replace') {
-      birthdaysRef.remove().then(finish);
+      birthdaysRef.remove().then(finish).catch(err => {
+        console.error('Firebase remove failed:', err);
+        showBanner('Could not clear the existing roster: ' + err.message, 'error');
+      });
     } else {
       finish();
     }
@@ -326,6 +347,14 @@ Jeremiah, 1-14"></textarea>
     document.getElementById('csvFile').click();
   });
 
+  document.getElementById('csvFile').addEventListener('change', () => {
+    const file = document.getElementById('csvFile').files[0];
+    const label = document.getElementById('dropZoneLabel');
+    label.textContent = file
+      ? `✓ Selected: ${file.name} — click "Import CSV" below to import it`
+      : '📄 Click to choose a CSV file (Name column, Date column — e.g. 8/29/2012)';
+  });
+
   document.getElementById('csvAddBtn').addEventListener('click', () => {
     const fileInput = document.getElementById('csvFile');
     const file = fileInput.files[0];
@@ -335,28 +364,73 @@ Jeremiah, 1-14"></textarea>
     }
     const mode = document.querySelector('input[name="mode"]:checked').value;
     const reader = new FileReader();
-    reader.onload = e => {
-      const text = e.target.result;
-      const rows = text.split(/\r?\n/).map(r => r.trim()).filter(Boolean);
-      const parsed = [], failed = [];
 
-      rows.forEach((row, i) => {
-        const fields = parseCSVRow(row);
-        if (fields.length < 2) { failed.push(row); return; }
-        const name = fields[0].trim();
-        const birthday = parseDateToken(fields[1]);
-        if (!birthday) {
-          // Likely a header row (e.g. "Name, Date of Birth") — skip silently if it's row 0
-          if (i === 0) return;
-          failed.push(row);
+    reader.onerror = () => {
+      showBanner('Could not read that file. Try re-saving it as a .csv and choosing it again.', 'error');
+    };
+
+    reader.onload = e => {
+      try {
+        const text = e.target.result;
+        const rows = text.split(/\r?\n/).map(r => r.trim()).filter(Boolean);
+
+        if (rows.length === 0) {
+          showBanner('That file appears to be empty.', 'error');
           return;
         }
-        if (!name) { failed.push(row); return; }
-        parsed.push({ name, birthday });
-      });
 
-      fileInput.value = '';
-      commitImport(parsed, failed, mode, 'CSV file');
+        const delimiter = detectDelimiter(rows[0]);
+        const headerFields = splitRow(rows[0], delimiter).map(h => h.toLowerCase());
+
+        const lastIdx = headerFields.findIndex(h => h.includes('last'));
+        const firstIdx = headerFields.findIndex(h => h.includes('first'));
+        const dobIdx = headerFields.findIndex(h => h.includes('birth') || h.includes('dob'));
+        const looksLikeHeader = lastIdx >= 0 || firstIdx >= 0 || dobIdx >= 0 ||
+          headerFields.some(h => h === 'name' || h === 'date');
+
+        const parsed = [], failed = [];
+        const threeColumnFormat = lastIdx >= 0 && firstIdx >= 0;
+        const startIdx = looksLikeHeader ? 1 : 0;
+
+        for (let i = startIdx; i < rows.length; i++) {
+          const row = rows[i];
+          const fields = splitRow(row, delimiter);
+
+          if (threeColumnFormat) {
+            const last = (fields[lastIdx] || '').trim();
+            const first = (fields[firstIdx] || '').trim();
+            // Date column: use the detected DOB column if we found one,
+            // otherwise fall back to whichever column isn't first/last name.
+            const dateColIdx = dobIdx >= 0
+              ? dobIdx
+              : fields.findIndex((_, idx) => idx !== lastIdx && idx !== firstIdx);
+            const birthday = parseDateToken(fields[dateColIdx] || '');
+            const name = [first, last].filter(Boolean).join(' ').trim();
+
+            if (!name || !birthday) { failed.push(row); continue; }
+            parsed.push({ name, birthday });
+          } else {
+            if (fields.length < 2) { failed.push(row); continue; }
+            const name = fields[0].trim();
+            const birthday = parseDateToken(fields[1]);
+            if (!name || !birthday) { failed.push(row); continue; }
+            parsed.push({ name, birthday });
+          }
+        }
+
+        fileInput.value = '';
+        document.getElementById('dropZoneLabel').textContent = '📄 Click to choose a CSV file (Name column, Date column — e.g. 8/29/2012)';
+
+        if (parsed.length === 0) {
+          showBanner(`Couldn't import any rows — none matched a recognizable Name/Date format. Skipped ${failed.length} row(s). Check that dates look like 8/29 or 8/29/2012.`, 'error');
+          return;
+        }
+
+        commitImport(parsed, failed, mode, 'CSV file');
+      } catch (err) {
+        console.error('CSV import error:', err);
+        showBanner('Something went wrong reading that file: ' + err.message, 'error');
+      }
     };
     reader.readAsText(file);
   });
