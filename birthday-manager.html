@@ -54,6 +54,7 @@
     box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-left: 5px solid #ce1f07;
   }
   .card h2 { font-size: 13pt; margin-bottom: 12px; color: #ce1f07; font-weight: 700; }
+  .field-hint { font-size: 8.5pt; color: #999; margin: -6px 0 10px 2px; }
   textarea, input[type=text], input[type=email], input[type=password] {
     width: 100%; font-family: 'Montserrat', sans-serif; font-size: 11pt;
     padding: 10px; border: 1px solid #ccc; border-radius: 6px; margin-bottom: 10px;
@@ -92,6 +93,7 @@
   input.edit-input { width: 100%; padding: 5px; font-family: 'Montserrat', sans-serif; border: 1px solid #ccc; border-radius: 4px; margin: 0; }
   .count-badge { background: #ce1f07; color: #fff; border-radius: 12px; padding: 2px 10px; font-size: 9pt; font-weight: 700; }
   .actions-cell { display: flex; gap: 6px; }
+  .display-diff { color: #ce1f07; font-weight: 700; }
 </style>
 </head>
 <body>
@@ -144,6 +146,7 @@ Jeremiah, 1-14"></textarea>
       <input type="file" id="csvFile" accept=".csv" />
     </div>
     <button id="csvAddBtn">Import CSV</button>
+    <div class="field-hint">Imported students get their Display Date automatically set to match their actual birthday. Adjust individual Display Dates afterward using Edit below.</div>
   </div>
 
   <div class="card">
@@ -151,7 +154,9 @@ Jeremiah, 1-14"></textarea>
     <div class="row">
       <input type="text" id="nameInput" placeholder="Student name" />
       <input type="text" id="dateInput" placeholder="Birthday (MM/DD)" />
+      <input type="text" id="displayDateInput" placeholder="Display date (MM/DD) — optional" />
     </div>
+    <div class="field-hint">Leave Display Date blank to have it match the birthday automatically.</div>
     <button id="addOneBtn">Add Student</button>
   </div>
 
@@ -159,7 +164,7 @@ Jeremiah, 1-14"></textarea>
     <h2>Roster <span class="count-badge" id="countBadge">0</span></h2>
     <input type="text" id="searchInput" placeholder="Search by name..." />
     <table>
-      <thead><tr><th>Name</th><th>Birthday</th><th></th></tr></thead>
+      <thead><tr><th>Name</th><th>Birthday</th><th>Display Date</th><th></th></tr></thead>
       <tbody id="rosterBody"></tbody>
     </table>
   </div>
@@ -297,12 +302,15 @@ Jeremiah, 1-14"></textarea>
     return parseCSVRow(row);
   }
 
+  // Every imported entry gets displayDate defaulted to its birthday.
+  // Adjusting the display date afterward (via Edit) never touches birthday,
+  // which is what the "next 7 days" widget logic keys off of.
   function commitImport(parsed, failed, mode, sourceLabel) {
     const finish = () => {
       const entries = {};
       parsed.forEach(p => {
         const key = birthdaysRef.push().key;
-        entries[key] = p;
+        entries[key] = { name: p.name, birthday: p.birthday, displayDate: p.displayDate || p.birthday };
       });
       birthdaysRef.update(entries).then(() => {
         let msg = `Imported ${parsed.length} student${parsed.length !== 1 ? 's' : ''} from ${sourceLabel}.`;
@@ -462,13 +470,21 @@ Jeremiah, 1-14"></textarea>
     const name = document.getElementById('nameInput').value.trim();
     const dateToken = document.getElementById('dateInput').value.trim();
     const birthday = parseDateToken(dateToken);
+    const displayDateRaw = document.getElementById('displayDateInput').value.trim();
+    const displayDate = displayDateRaw ? parseDateToken(displayDateRaw) : birthday;
+
     if (!name || !birthday) {
       showBanner('Enter a name and a valid MM/DD date.', 'error');
       return;
     }
-    birthdaysRef.push({ name, birthday }).then(() => {
+    if (displayDateRaw && !displayDate) {
+      showBanner('Display date must be a valid MM/DD date.', 'error');
+      return;
+    }
+    birthdaysRef.push({ name, birthday, displayDate: displayDate || birthday }).then(() => {
       document.getElementById('nameInput').value = '';
       document.getElementById('dateInput').value = '';
+      document.getElementById('displayDateInput').value = '';
       showBanner(`Added ${name}.`, 'success');
     });
   });
@@ -488,10 +504,13 @@ Jeremiah, 1-14"></textarea>
       .sort((a, b) => a[1].birthday.localeCompare(b[1].birthday));
     document.getElementById('countBadge').textContent = Object.keys(roster).length;
     entries.forEach(([key, s]) => {
+      const effectiveDisplay = s.displayDate || s.birthday;
+      const displayIsDifferent = effectiveDisplay !== s.birthday;
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td class="name-cell">${s.name}</td>
         <td class="date-cell">${formatDisplayDate(s.birthday)}</td>
+        <td class="date-cell${displayIsDifferent ? ' display-diff' : ''}">${formatDisplayDate(effectiveDisplay)}</td>
         <td class="actions-cell">
           <button class="small secondary" onclick="editRow('${key}')">Edit</button>
           <button class="small danger" onclick="deleteRow('${key}')">Delete</button>
@@ -507,12 +526,14 @@ Jeremiah, 1-14"></textarea>
 
   window.editRow = function(key) {
     const s = roster[key];
+    const displayDate = s.displayDate || s.birthday;
     const tr = [...document.querySelectorAll('#rosterBody tr')].find(row =>
       row.querySelector('button.danger').getAttribute('onclick').includes(key)
     );
     tr.innerHTML = `
       <td><input class="edit-input" id="editName-${key}" value="${s.name}"></td>
       <td><input class="edit-input" id="editDate-${key}" value="${s.birthday.replace('-','/')}"></td>
+      <td><input class="edit-input" id="editDisplayDate-${key}" value="${displayDate.replace('-','/')}"></td>
       <td class="actions-cell">
         <button class="small" onclick="saveRow('${key}')">Save</button>
         <button class="small secondary" onclick="renderRoster()">Cancel</button>
@@ -522,11 +543,18 @@ Jeremiah, 1-14"></textarea>
   window.saveRow = function(key) {
     const name = document.getElementById(`editName-${key}`).value.trim();
     const birthday = parseDateToken(document.getElementById(`editDate-${key}`).value.trim());
+    const displayDateRaw = document.getElementById(`editDisplayDate-${key}`).value.trim();
+    const displayDate = displayDateRaw ? parseDateToken(displayDateRaw) : birthday;
+
     if (!name || !birthday) {
       showBanner('Enter a valid name and MM/DD date.', 'error');
       return;
     }
-    birthdaysRef.child(key).update({ name, birthday }).then(() => showBanner('Updated.', 'success'));
+    if (displayDateRaw && !displayDate) {
+      showBanner('Display date must be a valid MM/DD date.', 'error');
+      return;
+    }
+    birthdaysRef.child(key).update({ name, birthday, displayDate: displayDate || birthday }).then(() => showBanner('Updated.', 'success'));
   };
 
   document.getElementById('searchInput').addEventListener('input', renderRoster);
