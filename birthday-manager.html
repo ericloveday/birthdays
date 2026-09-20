@@ -55,6 +55,10 @@
   }
   .card h2 { font-size: 13pt; margin-bottom: 12px; color: #ce1f07; font-weight: 700; }
   .field-hint { font-size: 8.5pt; color: #999; margin: -6px 0 10px 2px; }
+  .field-label {
+    display: block; font-size: 9pt; font-weight: 700; color: #666; text-transform: uppercase;
+    letter-spacing: 0.3px; margin-bottom: 6px;
+  }
   textarea, input[type=text], input[type=email], input[type=password] {
     width: 100%; font-family: 'Montserrat', sans-serif; font-size: 11pt;
     padding: 10px; border: 1px solid #ccc; border-radius: 6px; margin-bottom: 10px;
@@ -94,6 +98,7 @@
   .count-badge { background: #ce1f07; color: #fff; border-radius: 12px; padding: 2px 10px; font-size: 9pt; font-weight: 700; }
   .actions-cell { display: flex; gap: 6px; }
   .display-diff { color: #ce1f07; font-weight: 700; }
+  .empty-note { color: #999; font-size: 10pt; }
 </style>
 </head>
 <body>
@@ -168,6 +173,23 @@ Jeremiah, 1-14"></textarea>
       <tbody id="rosterBody"></tbody>
     </table>
   </div>
+
+  <div class="card">
+    <h2>Generate Birthday Announcements</h2>
+    <div class="field-hint">Checks the roster for birthdays coming up soon and lets you push them into the Announcement Manager. Anything already added for this year is automatically skipped — safe to run weekly.</div>
+    <div class="row">
+      <div>
+        <span class="field-label">Look ahead (days)</span>
+        <input type="text" id="lookAheadDays" value="14">
+      </div>
+      <div>
+        <span class="field-label">Message template (use {name})</span>
+        <input type="text" id="announceTemplate" value="🎂 Happy Birthday, {name}!">
+      </div>
+    </div>
+    <button id="checkUpcomingBtn">Check Upcoming Birthdays</button>
+    <div id="upcomingPreview" style="margin-top:14px;"></div>
+  </div>
 </div>
 </div><!-- /#app-content -->
 
@@ -184,6 +206,7 @@ Jeremiah, 1-14"></textarea>
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
   const birthdaysRef = db.ref('birthdays');
+  const announcementsRef = db.ref('announcements');
 
   const signinScreen = document.getElementById('signin-screen');
   const appContent = document.getElementById('app-content');
@@ -558,6 +581,118 @@ Jeremiah, 1-14"></textarea>
   };
 
   document.getElementById('searchInput').addEventListener('input', renderRoster);
+
+  /* ---------------- Generate Birthday Announcements ---------------- */
+
+  function pad2(n) { return String(n).padStart(2, '0'); }
+
+  function isoDate(d) {
+    return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+  }
+
+  // Given a stored "MM-DD" and a reference date, returns the next calendar
+  // occurrence of that month/day — this year if it hasn't passed yet,
+  // otherwise next year.
+  function nextOccurrence(mmdd, from) {
+    const [m, d] = mmdd.split('-').map(Number);
+    const fromMid = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+    let candidate = new Date(fromMid.getFullYear(), m - 1, d);
+    if (candidate < fromMid) {
+      candidate = new Date(fromMid.getFullYear() + 1, m - 1, d);
+    }
+    return candidate;
+  }
+
+  document.getElementById('checkUpcomingBtn').addEventListener('click', () => {
+    const lookAheadDays = parseInt(document.getElementById('lookAheadDays').value, 10) || 14;
+    const template = document.getElementById('announceTemplate').value.trim() || '🎂 Happy Birthday, {name}!';
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    announcementsRef.once('value').then(snap => {
+      const existing = snap.val() || {};
+      // Dedupe key = which student + which calendar year's occurrence —
+      // so re-running this next year naturally offers that year's birthday again.
+      const alreadyAdded = new Set(
+        Object.values(existing)
+          .filter(a => a.source === 'birthday')
+          .map(a => a.birthdayId + '|' + a.occurrenceDate)
+      );
+
+      const candidates = [];
+      Object.entries(roster).forEach(([key, s]) => {
+        const mmdd = s.displayDate || s.birthday;
+        const occ = nextOccurrence(mmdd, today);
+        const diffDays = Math.round((occ - today) / 86400000);
+        if (diffDays >= 0 && diffDays <= lookAheadDays) {
+          const occStr = isoDate(occ);
+          if (!alreadyAdded.has(key + '|' + occStr)) {
+            candidates.push({ birthdayId: key, name: s.name, occurrenceDate: occStr });
+          }
+        }
+      });
+
+      candidates.sort((a, b) => a.occurrenceDate.localeCompare(b.occurrenceDate));
+      renderAnnouncementPreview(candidates, template);
+    }).catch(err => {
+      showBanner('Could not check announcements: ' + err.message, 'error');
+    });
+  });
+
+  function renderAnnouncementPreview(candidates, template) {
+    const container = document.getElementById('upcomingPreview');
+
+    if (candidates.length === 0) {
+      container.innerHTML = '<p class="empty-note">No upcoming birthdays in that window — or they\'ve already been announced.</p>';
+      return;
+    }
+
+    let html = '<table><thead><tr><th style="width:30px;"></th><th>Name</th><th>Date</th><th>Announcement Text</th></tr></thead><tbody>';
+    candidates.forEach((c, i) => {
+      const dateLabel = formatDisplayDate(c.occurrenceDate.slice(5));
+      const text = template.split('{name}').join(c.name);
+      const safeText = text.replace(/"/g, '&quot;');
+      html += `<tr>
+        <td><input type="checkbox" class="announceCheck" data-idx="${i}" checked></td>
+        <td>${c.name}</td>
+        <td>${dateLabel}</td>
+        <td><input type="text" class="edit-input announceTextInput" data-idx="${i}" value="${safeText}"></td>
+      </tr>`;
+    });
+    html += '</tbody></table><button id="addSelectedBtn" style="margin-top:12px;">Add Selected to Announcements</button>';
+    container.innerHTML = html;
+
+    document.getElementById('addSelectedBtn').addEventListener('click', () => {
+      const entries = {};
+      candidates.forEach((c, i) => {
+        const checkbox = container.querySelector(`.announceCheck[data-idx="${i}"]`);
+        if (checkbox && checkbox.checked) {
+          const textInput = container.querySelector(`.announceTextInput[data-idx="${i}"]`);
+          const key = announcementsRef.push().key;
+          entries[key] = {
+            startDate: c.occurrenceDate,
+            endDate: c.occurrenceDate,
+            text: textInput.value.trim(),
+            source: 'birthday',
+            birthdayId: c.birthdayId,
+            occurrenceDate: c.occurrenceDate
+          };
+        }
+      });
+      const count = Object.keys(entries).length;
+      if (count === 0) {
+        showBanner('Nothing selected.', 'error');
+        return;
+      }
+      announcementsRef.update(entries).then(() => {
+        showBanner(`Added ${count} birthday announcement${count !== 1 ? 's' : ''}.`, 'success');
+        container.innerHTML = '';
+      }).catch(err => {
+        console.error('Firebase write failed:', err);
+        showBanner('Could not add announcements: ' + err.message, 'error');
+      });
+    });
+  }
 </script>
 </body>
 </html>
